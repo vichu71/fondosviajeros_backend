@@ -3,9 +3,12 @@ package com.vhs.fondosviajeros.service;
 import com.vhs.fondosviajeros.entity.Fondo;
 import com.vhs.fondosviajeros.repository.FondoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
@@ -49,5 +52,14 @@ public class FondoService {
     public Optional<Fondo> findById(Long id) {
         return fondoRepository.findById(id);
     }
+    public Optional<Fondo> findByNombre(String nombre) {
+        return fondoRepository.findByNombre(nombre);
+    }
+
+    public Page<Fondo> findFondosByUsuario(Long usuarioId, Pageable pageable) {
+        return fondoRepository.findFondosByUsuarioId(usuarioId, pageable);
+    }
+
+
 
 }

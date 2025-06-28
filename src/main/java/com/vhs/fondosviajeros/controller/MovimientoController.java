@@ -7,10 +7,15 @@ import com.vhs.fondosviajeros.service.FondoService;
 import com.vhs.fondosviajeros.service.MovimientoService;
 import com.vhs.fondosviajeros.service.UsuarioService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -36,22 +41,60 @@ public class MovimientoController {
 
     // POST /api/movimientos
     @PostMapping
-    public ResponseEntity<?> crearMovimiento(@RequestBody MovimientoRequest request) {
-        Optional<Usuario> usuarioOpt = usuarioService.findById(request.usuarioId);
-        Optional<Fondo> fondoOpt = fondoService.findById(request.fondoId);
+    public ResponseEntity<?> crearMovimiento(@RequestBody Map<String, Object> request) {
+        try {
+            // Extraer datos del JSON recibido de Flutter
+            String concepto = (String) request.get("concepto");
+            Double cantidad = Double.valueOf(request.get("cantidad").toString());
+            String tipo = (String) request.get("tipo");
+            Long usuarioId = Long.valueOf(request.get("usuarioId").toString());
+            Long fondoId = Long.valueOf(request.get("fondoId").toString());
+            
+            System.out.println("🚀 [POST] Creando movimiento:");
+            System.out.println("📝 Concepto: " + concepto);
+            System.out.println("💰 Cantidad: " + cantidad);
+            System.out.println("🏷️ Tipo: " + tipo);
+            System.out.println("👤 Usuario ID: " + usuarioId);
+            System.out.println("💰 Fondo ID: " + fondoId);
 
-        if (usuarioOpt.isEmpty() || fondoOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body("Usuario o fondo no encontrado");
-        }
+            // Validar que los datos no sean nulos
+            if (concepto == null || cantidad == null || usuarioId == null || fondoId == null) {
+                return ResponseEntity.badRequest().body("Datos incompletos en la solicitud");
+            }
 
-        Movimiento mov = movimientoService.crearMovimiento(
-                request.concepto,
-                request.cantidad,
+            // Buscar usuario y fondo
+            Optional<Usuario> usuarioOpt = usuarioService.findById(usuarioId);
+            Optional<Fondo> fondoOpt = fondoService.findById(fondoId);
+
+            if (usuarioOpt.isEmpty()) {
+                System.out.println("❌ Usuario no encontrado: " + usuarioId);
+                return ResponseEntity.badRequest().body("Usuario no encontrado");
+            }
+            
+            if (fondoOpt.isEmpty()) {
+                System.out.println("❌ Fondo no encontrado: " + fondoId);
+                return ResponseEntity.badRequest().body("Fondo no encontrado");
+            }
+
+            // Crear el movimiento
+            Movimiento mov = movimientoService.crearMovimiento(
+                concepto,
+                cantidad,
+                tipo, // Pasar el tipo (APORTE/GASTO)
                 usuarioOpt.get(),
                 fondoOpt.get()
-        );
+            );
 
-        return ResponseEntity.ok(mov);
+            System.out.println("✅ Movimiento creado exitosamente: " + mov.getId());
+            
+            return ResponseEntity.ok(mov);
+            
+        } catch (Exception e) {
+            System.err.println("💥 Error al crear movimiento: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error interno al crear movimiento: " + e.getMessage());
+        }
     }
 
     // GET /api/movimientos/{fondoId}
@@ -66,5 +109,29 @@ public class MovimientoController {
     public ResponseEntity<Double> obtenerTotal(@PathVariable Long fondoId) {
         double total = movimientoService.obtenerTotalPorFondo(fondoId);
         return ResponseEntity.ok(total);
+    }
+    @GetMapping("/fondo/{fondoId}")
+    public ResponseEntity<?> getMovimientosByFondo(
+            @PathVariable Long fondoId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        try {
+            System.out.println("🚀 Obteniendo movimientos para fondo ID: " + fondoId);
+            System.out.println("📄 Página: " + page + ", Tamaño: " + size);
+            
+            Pageable pageable = PageRequest.of(page, size);
+            Page<Movimiento> movimientos = movimientoService.findMovimientosByFondo(fondoId, pageable);
+            
+            System.out.println("✅ Movimientos encontrados: " + movimientos.getTotalElements());
+            
+            return ResponseEntity.ok(movimientos);
+        } catch (Exception e) {
+            System.err.println("❌ Error al obtener movimientos: " + e.getMessage());
+            e.printStackTrace(); // Esto te mostrará el stack trace completo
+            
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al obtener movimientos: " + e.getMessage());
+        }
     }
 }
